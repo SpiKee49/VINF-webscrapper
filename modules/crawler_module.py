@@ -1,12 +1,10 @@
-# crawler_class.py
-
 import os
 import time
-import random
+from typing import Optional
 import requests
 from bs4 import BeautifulSoup
 
-# Module-level constant for headers, as they are unlikely to change per instance.
+# Module-level constant for headers 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36',
     'Accept-Language': 'en-US,en;q=0.9,sk;q=0.8',
@@ -15,23 +13,15 @@ HEADERS = {
     'Connection': 'keep-alive',
 }
 
-class Crawler:
-    """
-    A class to crawl a paginated website, download HTML pages, and save them locally.
-    """
-    def __init__(self, base_url: str, save_dir: str, max_pages: int = 5):
-        """
-        Initializes the Crawler instance.
+REQUEST_DELAY = 20 #seconds as the source page specificies limit of 15
 
-        Args:
-            base_url (str): The starting URL to crawl.
-            save_dir (str): The directory where HTML files will be saved.
-            max_pages (int): The maximum number of pages to fetch.
-        """
+class Crawler:
+    def __init__(self, base_url: str, save_dir: str, max_pages: int = 5, request_delay = REQUEST_DELAY):
+
         self.base_url = base_url
         self.save_dir = save_dir
         self.max_pages = max_pages
-        
+        self.request_delay = request_delay
         # Using a requests.Session() object is more efficient for multiple requests
         # to the same domain as it reuses the underlying TCP connection.
         self.session = requests.Session()
@@ -46,7 +36,7 @@ class Crawler:
             print(f"Error creating directory {self.save_dir}: {e}")
             raise
 
-    def _fetch_page(self, url: str) -> requests.Response | None:
+    def _fetch_page(self, url: str) -> Optional[requests.Response]:
         print(f"Downloading page: {url}")
         try:
             response = self.session.get(url, timeout=15)
@@ -65,7 +55,7 @@ class Crawler:
         except IOError as e:
             print(f"Could not save page content. Error: {e}")
 
-    def _find_next_page_url(self, response: requests.Response) -> str | None:
+    def _find_next_page_url(self, response: requests.Response) -> Optional[str]:
         soup = BeautifulSoup(response.text, 'html.parser')
         next_page_link = soup.select_one('a.next.page-numbers')
         if next_page_link and 'href' in next_page_link.attrs:
@@ -92,9 +82,8 @@ class Crawler:
                 current_url = self._find_next_page_url(response)
 
                 if current_url and pages_fetched < self.max_pages:
-                    sleep_duration = random.uniform(2.0, 5.0)
-                    print(f"Sleeping for {sleep_duration:.2f} seconds...")
-                    time.sleep(sleep_duration)
+                    print(f"Sleeping for {self.request_delay:.2f} seconds...")
+                    time.sleep(self.request_delay)
             else:
                 print("Stopping crawler due to a download error.")
                 break
@@ -106,16 +95,3 @@ class Crawler:
             print(f"Reached the max page limit of {self.max_pages}.")
 
 
-if __name__ == "__main__":
-    # This block demonstrates how to use the Crawler class.
-    # It only runs when the script is executed directly.
-    
-    # Configuration
-    CRAWL_URL = "https://gohistoric.com/world-heritage/"
-    SAVE_PATH = os.path.join("data", "html", "gohistoric_lists")
-    
-    # 1. Create an instance of the Crawler
-    my_crawler = Crawler(base_url=CRAWL_URL, save_dir=SAVE_PATH, max_pages=5)
-    
-    # 2. Run the crawler
-    my_crawler.run()
