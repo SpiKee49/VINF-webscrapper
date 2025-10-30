@@ -14,70 +14,66 @@ class Indexer:
         self.data_csv_path = Path(data_csv_path)
         self.index_dir = Path(index_dir)
 
-        # Create index directory if it doesn't exist
         self.index_dir.mkdir(parents=True, exist_ok=True)
 
-        # File paths for persisted index data
+        # file paths for index data
         self.inverted_index_path = self.index_dir / "inverted_index.pkl"
         self.doc_metadata_path = self.index_dir / "doc_metadata.pkl"
         self.term_doc_freq_path = self.index_dir / "term_doc_freq.pkl"
         self.index_stats_path = self.index_dir / "index_stats.json"
 
-        # Data structures for the index
+        # inverted_index structure: {term: {doc_id: term_frequency}}
         self.inverted_index: Dict[str, Dict[int, int]
                                   ] = defaultdict(lambda: defaultdict(int))
-        # inverted_index structure: {term: {doc_id: term_frequency}}
 
-        self.doc_metadata: Dict[int, Dict] = {}
         # doc_metadata structure: {doc_id: {url, name, description, country, etc.}}
+        self.doc_metadata: Dict[int, Dict] = {}
 
-        self.term_doc_freq: Dict[str, int] = defaultdict(int)
         # term_doc_freq structure: {term: number_of_documents_containing_term}
+        self.term_doc_freq: Dict[str, int] = defaultdict(int)
 
         self.total_docs = 0
         self.doc_lengths: Dict[int, int] = {}  # {doc_id: total_term_count}
 
-        # Fields to index (can be configured)
+        # fields to index (from extracted data structure)
         self.indexable_fields = ['name', 'full_name',
                                  'description', 'contry', 'type', 'status']
 
     def _tokenize(self, text: str) -> List[str]:
         """
-        Tokenize text into normalized terms.
-        - Convert to lowercase
-        - Remove special characters
-        - Split on whitespace
-        - Filter out very short tokens
+            - convert to lowercase
+            - remove special characters
+            - split on whitespace
+            - filter out very short tokens (x <= 2)
         """
+
         if not text or not isinstance(text, str):
             return []
 
-        # Convert to lowercase
+        # convert to lowercase
         text = text.lower()
 
-        # Replace punctuation and special chars with spaces
+        # replace punctuation and special chars with spaces
         text = re.sub(r'[^\w\s]', ' ', text)
 
-        # Split on whitespace and filter
+        # split on whitespace and filter
         tokens = [token.strip()
                   for token in text.split() if len(token.strip()) > 2]
 
         return tokens
 
     def _build_index_from_csv(self):
-        """
-        Read the CSV file and build the inverted index.
-        """
+
         print(f"Building index from: {self.data_csv_path}")
 
         if not self.data_csv_path.exists():
             raise FileNotFoundError(
-                f"Data file not found: {self.data_csv_path}")
+                f"File not found: {self.data_csv_path}")
 
         doc_id = 0
 
-        with open(self.data_csv_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
+        with open(self.data_csv_path, 'r', encoding='utf-8') as data_file:
+            reader = csv.DictReader(data_file)
 
             for row in reader:
                 # Store document metadata
@@ -153,17 +149,7 @@ class Indexer:
         return math.log((self.total_docs + 1) / (df + 1)) + 1
 
     def calculate_tfidf(self, term: str, doc_id: int, idf_method: str = 'classic') -> float:
-        """
-        Calculate TF-IDF score for a term in a document.
 
-        Args:
-            term: The search term
-            doc_id: Document identifier
-            idf_method: 'classic' or 'smooth'
-
-        Returns:
-            TF-IDF score
-        """
         tf = self.calculate_tf(term, doc_id)
 
         if idf_method == 'smooth':
@@ -174,55 +160,43 @@ class Indexer:
         return tf * idf
 
     def _save_index(self):
-        """
-        Persist the index data structures to disk.
-        """
         print("Saving index to disk...")
 
-        # Save inverted index
-        with open(self.inverted_index_path, 'wb') as f:
-            pickle.dump(dict(self.inverted_index), f)
+        with open(self.inverted_index_path, 'wb') as index_file:
+            pickle.dump(dict(self.inverted_index), index_file)
 
-        # Save document metadata
-        with open(self.doc_metadata_path, 'wb') as f:
-            pickle.dump(self.doc_metadata, f)
+        with open(self.doc_metadata_path, 'wb') as index_file:
+            pickle.dump(self.doc_metadata, index_file)
 
-        # Save term document frequencies
-        with open(self.term_doc_freq_path, 'wb') as f:
-            pickle.dump(dict(self.term_doc_freq), f)
+        with open(self.term_doc_freq_path, 'wb') as index_file:
+            pickle.dump(dict(self.term_doc_freq), index_file)
 
-        # Save index statistics as JSON for human readability
+        # helper to see index values, no functional meaning
         stats = {
             'total_docs': self.total_docs,
             'total_unique_terms': len(self.inverted_index),
             'doc_lengths': self.doc_lengths,
             'indexed_fields': self.indexable_fields
         }
-        with open(self.index_stats_path, 'w', encoding='utf-8') as f:
-            json.dump(stats, f, indent=2)
+        with open(self.index_stats_path, 'w', encoding='utf-8') as index_file:
+            json.dump(stats, index_file, indent=2)
 
         print(f"Index saved to: {self.index_dir}")
 
     def _load_index(self):
-        """
-        Load the index data structures from disk.
-        """
+
         print("Loading existing index from disk...")
 
-        # Load inverted index
         with open(self.inverted_index_path, 'rb') as f:
             self.inverted_index = defaultdict(
                 lambda: defaultdict(int), pickle.load(f))
 
-        # Load document metadata
         with open(self.doc_metadata_path, 'rb') as f:
             self.doc_metadata = pickle.load(f)
 
-        # Load term document frequencies
         with open(self.term_doc_freq_path, 'rb') as f:
             self.term_doc_freq = defaultdict(int, pickle.load(f))
 
-        # Load statistics
         with open(self.index_stats_path, 'r', encoding='utf-8') as f:
             stats = json.load(f)
             self.total_docs = stats['total_docs']
@@ -231,14 +205,11 @@ class Indexer:
             self.indexable_fields = stats.get(
                 'indexed_fields', self.indexable_fields)
 
-        print(f"Index loaded successfully.")
-        print(f"  Total documents: {self.total_docs}")
-        print(f"  Total unique terms: {len(self.inverted_index)}")
+        print("Index loaded successfully.")
+        print(f"-Total documents: {self.total_docs}")
+        print(f"-Total unique terms: {len(self.inverted_index)}")
 
     def index_exists(self) -> bool:
-        """
-        Check if index files already exist.
-        """
         return (self.inverted_index_path.exists() and
                 self.doc_metadata_path.exists() and
                 self.term_doc_freq_path.exists() and

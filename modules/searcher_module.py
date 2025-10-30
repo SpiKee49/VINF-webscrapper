@@ -1,22 +1,12 @@
 from collections import defaultdict
 from typing import List, Dict
-
 from indexer_module import Indexer
 
 
 class Searcher:
-    """
-    Search engine that uses the inverted index to find and rank documents.
-    Supports both classic and smooth IDF scoring methods.
-    """
 
     def __init__(self, indexer: Indexer):
-        """
-        Initialize the searcher with an existing indexer.
 
-        Args:
-            indexer: An initialized Indexer instance with loaded index data
-        """
         self.indexer = indexer
 
         if self.indexer.total_docs == 0:
@@ -27,17 +17,6 @@ class Searcher:
             f"Searcher initialized with {self.indexer.total_docs} documents.")
 
     def search(self, query: str, idf_method: str = 'classic', top_k: int = 10) -> List[Dict]:
-        """
-        Search for documents matching the query and return ranked results.
-
-        Args:
-            query: Search query string
-            idf_method: 'classic' or 'smooth' IDF calculation method
-            top_k: Number of top results to return
-
-        Returns:
-            List of dictionaries containing document metadata and scores
-        """
         # Tokenize the query
         query_terms = self.indexer._tokenize(query)
 
@@ -86,16 +65,7 @@ class Searcher:
         return results
 
     def compare_idf_methods(self, query: str, top_k: int = 10) -> Dict[str, List[Dict]]:
-        """
-        Compare results using both IDF methods side by side.
 
-        Args:
-            query: Search query string
-            top_k: Number of top results to return for each method
-
-        Returns:
-            Dictionary with 'classic' and 'smooth' keys containing results
-        """
         print(f"\n{'='*60}")
         print(f"Comparing IDF methods for query: '{query}'")
         print(f"{'='*60}\n")
@@ -107,58 +77,7 @@ class Searcher:
 
         return results
 
-    def search_with_filter(self, query: str, filters: Dict[str, str],
-                           idf_method: str = 'classic', top_k: int = 10) -> List[Dict]:
-        """
-        Search with additional metadata filters.
-
-        Args:
-            query: Search query string
-            filters: Dictionary of field:value pairs to filter by (e.g., {'contry': 'France'})
-            idf_method: 'classic' or 'smooth' IDF calculation method
-            top_k: Number of top results to return
-
-        Returns:
-            List of filtered and ranked results
-        """
-        # First, get all search results
-        # Get more results for filtering
-        all_results = self.search(query, idf_method, top_k=1000)
-
-        # Apply filters
-        filtered_results = []
-        for result in all_results:
-            metadata = result['metadata']
-
-            # Check if all filter conditions are met
-            matches_all = True
-            for field, value in filters.items():
-                if field not in metadata or value.lower() not in metadata[field].lower():
-                    matches_all = False
-                    break
-
-            if matches_all:
-                filtered_results.append(result)
-
-            # Stop if we have enough results
-            if len(filtered_results) >= top_k:
-                break
-
-        print(f"Applied filters: {filters}")
-        print(f"Filtered results: {len(filtered_results)}")
-
-        return filtered_results
-
     def get_term_statistics(self, term: str) -> Dict:
-        """
-        Get statistics about a specific term in the index.
-
-        Args:
-            term: The term to analyze
-
-        Returns:
-            Dictionary with term statistics
-        """
         normalized_term = self.indexer._tokenize(term)
         if not normalized_term:
             return {'error': 'Invalid term'}
@@ -187,14 +106,7 @@ class Searcher:
 
         return stats
 
-    def display_results(self, results: List[Dict], show_description: bool = True):
-        """
-        Display search results in a formatted way.
-
-        Args:
-            results: List of result dictionaries from search
-            show_description: Whether to show full description
-        """
+    def display_results(self, results: List[Dict],):
         if not results:
             print("No results to display.")
             return
@@ -216,15 +128,6 @@ class Searcher:
             if metadata.get('type'):
                 print(f"   Type: {metadata.get('type')}")
 
-            if show_description and metadata.get('description'):
-                desc = metadata['description']
-                # Truncate long descriptions
-                if len(desc) > 200:
-                    desc = desc[:200] + "..."
-                print(f"   Description: {desc}")
-
-            print()
-
 
 # --- Main execution block ---
 if __name__ == "__main__":
@@ -240,11 +143,6 @@ if __name__ == "__main__":
     # Create searcher
     searcher = Searcher(indexer)
 
-    # Example searches
-    print("\n" + "="*80)
-    print("EXAMPLE SEARCHES")
-    print("="*80)
-
     # Example 1: Basic search
     query = "historic temple"
     results = searcher.search(query, idf_method='classic', top_k=5)
@@ -259,31 +157,7 @@ if __name__ == "__main__":
     comparison = searcher.compare_idf_methods(query, top_k=3)
 
     print("\n--- Classic IDF Results ---")
-    searcher.display_results(comparison['classic'], show_description=False)
+    searcher.display_results(comparison['classic'])
 
     print("\n--- Smooth IDF Results ---")
-    searcher.display_results(comparison['smooth'], show_description=False)
-
-    # Example 3: Search with filters
-    print("\n" + "="*80)
-    print("SEARCH WITH FILTERS")
-    print("="*80)
-
-    query = "cultural"
-    filters = {'type': 'Cultural'}
-    filtered_results = searcher.search_with_filter(query, filters, top_k=5)
-    searcher.display_results(filtered_results, show_description=False)
-
-    # Example 4: Term statistics
-    print("\n" + "="*80)
-    print("TERM STATISTICS")
-    print("="*80)
-
-    term = "historic"
-    stats = searcher.get_term_statistics(term)
-    print(f"\nStatistics for term '{term}':")
-    for key, value in stats.items():
-        if key != 'term':
-            print(f"  {key}: {value}")
-
-    print("\n--- Searcher finished. ---")
+    searcher.display_results(comparison['smooth'])
